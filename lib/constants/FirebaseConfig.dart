@@ -9,4 +9,5 @@ FirebaseOptions firebaseOption = const FirebaseOptions(
   appId: "1:821866386606:android:fa0088a706b2a42d5e493f",
   messagingSenderId: "821866386606",
   projectId: "tracking-system-project",
+  storageBucket: "gs://tracking-system-project.appspot.com", // เพิ่ม storageBucket ที่นี่
 );

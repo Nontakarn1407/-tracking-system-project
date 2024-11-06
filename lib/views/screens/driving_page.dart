@@ -4,12 +4,14 @@ import 'package:latlong2/latlong.dart';
 
 class DrivingPage extends StatefulWidget {
   const DrivingPage({super.key});
+  
+  get center => null;
 
   @override
-  _DrivingPageState createState() => _DrivingPageState();
+  DrivingPageState createState() => DrivingPageState();
 }
 
-class _DrivingPageState extends State<DrivingPage> {
+class DrivingPageState extends State<DrivingPage> {
   late MapController mapController;
 
   @override
@@ -27,7 +29,7 @@ class _DrivingPageState extends State<DrivingPage> {
       appBar: AppBar(
         backgroundColor: isDarkMode ? Colors.black : primaryColor,
         elevation: 0,
-        title: Text(
+        title: const Text(
           'รายงานการขับขี่',
           style: TextStyle(
             color: Colors.white,
@@ -43,35 +45,51 @@ class _DrivingPageState extends State<DrivingPage> {
         ),
       ),
       body: Column(
-  children: [
-    Expanded(
-      child: FlutterMap(
-       options: MapOptions(
- // จุดเริ่มต้น
-  onTap: (tapPosition, point) {
-    // ทำการอัปเดตหรือแสดงข้อมูลตามที่ต้องการเมื่อคลิกที่แผนที่
-  },
-),
-
         children: [
-          TileLayer(
-            urlTemplate: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-            subdomains: ['a', 'b', 'c'],
-          ),
-          PolylineLayer(
-            polylines: [
-              Polyline(
-                points: [
-                  LatLng(13.7563, 100.5018),
-                  LatLng(13.7583, 100.5030),
-                  LatLng(13.7590, 100.5050),
-                ],
-                color: Colors.blue,
-                strokeWidth: 5,
+          Expanded(
+            child: FlutterMap(
+              mapController: mapController,
+              options: MapOptions(
+                initialCenter: LatLng(13.7563, 100.5018), // จุดเริ่มต้น
+                initialZoom: 14.0,
+                onTap: (tapPosition, point) {
+                  // ใช้ debugPrint แทนการใช้ print ใน production code
+                  debugPrint("Map tapped at: $point");
+                },
               ),
-            ],
-          ),
-               
+              children: [
+                TileLayer(
+                  urlTemplate: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+                  subdomains: ['a', 'b', 'c'],
+                ),
+                PolylineLayer(
+                  polylines: [
+                    Polyline(
+                      points: [
+                        LatLng(13.7563, 100.5018),
+                        LatLng(13.7583, 100.5030),
+                        LatLng(13.7590, 100.5050),
+                        LatLng(13.7600, 100.5065), // จุดตัวอย่าง
+                      ],
+                      color: const Color.fromARGB(255, 250, 0, 0),
+                      strokeWidth: 5,
+                    ),
+                  ],
+                ),
+        MarkerLayer(
+          markers: [
+            Marker(
+              width: 80.0,
+              height: 80.0,
+              point: widget.center ?? LatLng(37.4219983, -122.084),
+              child: Icon(
+                Icons.location_on,
+                color: Colors.red,
+                size: 50.0,
+              ),
+            ),
+          ],
+        ),
               ],
             ),
           ),

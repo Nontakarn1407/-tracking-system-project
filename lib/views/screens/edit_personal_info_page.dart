@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+import 'package:flutter/foundation.dart'; // For kIsWeb
 import 'package:flutter/material.dart';
 import 'package:flutter_application_4/models/user_model.dart';
 import 'package:flutter_application_4/views/screens/personal_info_page.dart';
@@ -17,82 +19,68 @@ class _EditPersonalInfoPageState extends State<EditPersonalInfoPage> {
 
   final _formKey = GlobalKey<FormState>();
 
-  final TextEditingController _nameController =
-      TextEditingController(text: 'John Doe');
-  final TextEditingController _emailController =
-      TextEditingController(text: 'john.doe@example.com');
-  final TextEditingController _phoneController =
-      TextEditingController(text: '+123 456 7890');
-  final TextEditingController _employeeIdController =
-      TextEditingController(text: 'EMP12345');
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _employeeIdController = TextEditingController();
 
   String _imageUrl = '';
 
-  // Define your primary color here
   final Color primaryColor = const Color.fromARGB(255, 71, 124, 168);
 
   @override
   void initState() {
-    setState(() {
-      _imageUrl = widget.userInfo['imageUrl'] ?? '';
-    });
     super.initState();
-  }
-
-  @override
-  Widget build(BuildContext context) {
+    _imageUrl = widget.userInfo['imageUrl'] ?? '';
     _nameController.text = widget.userInfo['name'] ?? '';
     _emailController.text = widget.userInfo['email'] ?? '';
     _phoneController.text = widget.userInfo['phone'] ?? '';
     _employeeIdController.text = widget.userInfo['employeeId'] ?? '';
+  }
 
-    void onCickSave() async {
-      bool success = await userModel
-          .updateUserInfo(userId: widget.userInfo['employeeId'], data: {
-        'displayName': _nameController.text,
-        'phoneNumber': _phoneController.text,
-      });
+  void onCLickChangeImageProfile() async {
+    final picker = ImagePicker();
 
-      if (success) {
-        Navigator.pushReplacement(context,
-            MaterialPageRoute(builder: (context) => PersonalInfoPage()));
+    if (kIsWeb) {
+      // สำหรับ Web ใช้ readAsBytes เพื่อรับ Uint8List
+      final XFile? pickedImage = await picker.pickImage(source: ImageSource.gallery);
+      if (pickedImage != null) {
+        Uint8List imageData = await pickedImage.readAsBytes();
+        String downloadUrl = await userModel.uploadImageProfileWeb(imageData);
+        setState(() {
+          _imageUrl = downloadUrl;
+        });
+      }
+    } else {
+      // สำหรับมือถือ ใช้ไฟล์โดยตรง
+      final XFile? pickedImage = await picker.pickImage(source: ImageSource.gallery);
+      if (pickedImage != null) {
+        String downloadUrl = await userModel.uploadImageProfile(pickedImage);
+        setState(() {
+          _imageUrl = downloadUrl;
+        });
       }
     }
+  }
 
-    void onCLickChangeImageProfile() async {
-      final file = ImagePicker();
-      final image = await file.pickImage(source: ImageSource.gallery);
-
-      if (image == null) return;
-
-      String downloadUrl = await userModel.uploadImageProfile(image);
-      setState(() {
-        _imageUrl = downloadUrl;
-      });
-    }
-
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
-    appBar: AppBar(
-      title: const Text(
-        'Edit Personal Information',
-        style: TextStyle(color: Colors.white), // เปลี่ยนข้อความให้เป็นสีขาว
-      ),
-      backgroundColor: primaryColor, // เปลี่ยนสี AppBar
-      automaticallyImplyLeading: false,
-      leading: IconButton(
-        icon: const Icon(
-          Icons.arrow_back,
-          color: Colors.white, // เปลี่ยนปุ่มกลับให้เป็นสีขาว
+      appBar: AppBar(
+        title: const Text('Edit Personal Information', style: TextStyle(color: Colors.white)),
+        backgroundColor: primaryColor,
+        automaticallyImplyLeading: false,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () {
+            Navigator.push(context, MaterialPageRoute(builder: (context) {
+              return const PersonalInfoPage();
+            }));
+          },
         ),
-        onPressed: () {
-          Navigator.push(context, MaterialPageRoute(builder: (context) {
-            return const PersonalInfoPage();
-          }));
-        },
       ),
-    ),
       body: Container(
-        color: Colors.grey[100], // Background color
+        color: Colors.grey[100],
         child: SingleChildScrollView(
           child: Center(
             child: Padding(
@@ -107,9 +95,7 @@ class _EditPersonalInfoPageState extends State<EditPersonalInfoPage> {
                     Container(
                       alignment: Alignment.center,
                       child: GestureDetector(
-                        onTap: () {
-                          onCLickChangeImageProfile();
-                        },
+                        onTap: onCLickChangeImageProfile,
                         child: CircleAvatar(
                           radius: 60,
                           backgroundColor: Colors.brown.shade800,
@@ -117,29 +103,21 @@ class _EditPersonalInfoPageState extends State<EditPersonalInfoPage> {
                             child: SizedBox(
                               width: 120,
                               height: 120,
-                              child: _imageUrl == ''
+                              child: _imageUrl.isEmpty
                                   ? Center(
                                       child: Text(
-                                        (widget.userInfo["name"]![0] +
-                                                widget.userInfo["name"]![1])
-                                            .toUpperCase(),
-                                        style: const TextStyle(
-                                            fontSize: 34, color: Colors.white),
+                                        widget.userInfo["name"]!.substring(0, 2).toUpperCase(),
+                                        style: const TextStyle(fontSize: 34, color: Colors.white),
                                       ),
                                     )
-                                  : Image.network(
-                                      _imageUrl,
-                                      fit: BoxFit.cover,
-                                    ),
+                                  : Image.network(_imageUrl, fit: BoxFit.cover),
                             ),
                           ),
                         ),
                       ),
                     ),
                     const SizedBox(height: 24),
-                    const SizedBox(height: 16),
-                    _buildTextFormField(
-                        _employeeIdController, 'Employee ID', true),
+                    _buildTextFormField(_employeeIdController, 'Employee ID', true),
                     const SizedBox(height: 16),
                     _buildTextFormField(_emailController, 'Email', true),
                     const SizedBox(height: 16),
@@ -153,7 +131,7 @@ class _EditPersonalInfoPageState extends State<EditPersonalInfoPage> {
                       },
                       style: ElevatedButton.styleFrom(
                         foregroundColor: Colors.white,
-                        backgroundColor: primaryColor, // Change button color
+                        backgroundColor: primaryColor,
                         minimumSize: const Size(double.infinity, 50),
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(
@@ -192,5 +170,17 @@ class _EditPersonalInfoPageState extends State<EditPersonalInfoPage> {
         return null;
       },
     );
+  }
+
+  void onCickSave() async {
+    bool success = await userModel.updateUserInfo(userId: widget.userInfo['employeeId'], data: {
+      'displayName': _nameController.text,
+      'phoneNumber': _phoneController.text,
+    });
+
+    if (success) {
+      Navigator.pushReplacement(context,
+          MaterialPageRoute(builder: (context) => const PersonalInfoPage()));
+    }
   }
 }

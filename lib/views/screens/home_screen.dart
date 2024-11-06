@@ -1,8 +1,4 @@
 import 'dart:async';
-import 'dart:io';
-import 'dart:typed_data';
-import 'dart:ui';
-import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_application_4/models/user_model.dart';
@@ -10,10 +6,9 @@ import 'package:flutter_application_4/views/screens/menu_page.dart';
 import 'package:flutter_application_4/views/screens/sos_screen.dart';
 import 'package:flutter_application_4/views/widgets/buttomSheet/friends_list_buttom_sheet.dart';
 import 'package:flutter_application_4/views/widgets/dialogs/update_status_dialog.dart';
-import 'package:flutter_cache_manager/flutter_cache_manager.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart' as google_maps;
+import 'package:geolocator/geolocator.dart';
+import 'package:image_network/image_network.dart';
 import 'package:latlong2/latlong.dart' as latlong;
 
 class HomeScreen extends StatefulWidget {
@@ -28,7 +23,12 @@ class _HomeScreenState extends State<HomeScreen> {
   Position? _currentPosition;
   UserModel userModel = UserModel();
   List<Map<String, dynamic>> employees = [];
-  Set<google_maps.Marker> markerEmployees = {};
+  List employeesMap = [];
+  final MapController _mapController = MapController();
+  
+  get zoomIn => null;
+  
+  get zoomOut => null;
 
   @override
   void initState() {
@@ -46,74 +46,14 @@ class _HomeScreenState extends State<HomeScreen> {
     List employeesLocation =
         await userModel.getOtherEmployeesStatusAndLocation();
 
-    for (var employee in employeesLocation) {
-      final File markerImageFile =
-          await DefaultCacheManager().getSingleFile(employee['imageUrl']);
-      final Uint8List markerImageBytes = await markerImageFile.readAsBytes();
-
-      final ui.Codec codec = await ui.instantiateImageCodec(
-        markerImageBytes,
-        targetWidth: 120,
-        targetHeight: 120,
-      );
-      final ui.FrameInfo frameInfo = await codec.getNextFrame();
-      final ui.Image image = frameInfo.image;
-
-      final ui.PictureRecorder pictureRecorder = ui.PictureRecorder();
-      final Canvas canvas = Canvas(pictureRecorder);
-      final Paint paint = Paint()..isAntiAlias = true;
-
-      final double radius = 60.0;
-      paint.color = Colors.transparent;
-      canvas.drawCircle(Offset(radius, radius), radius, paint);
-
-      paint.shader = ImageShader(
-        image,
-        TileMode.clamp,
-        TileMode.clamp,
-        Matrix4.identity()
-            .scaled(120 / image.width, 120 / image.height)
-            .storage,
-      );
-      canvas.drawCircle(Offset(radius, radius), radius, paint);
-
-      final Paint strokePaint = Paint()
-        ..color = Colors.blue
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 10.0
-        ..isAntiAlias = true;
-      canvas.drawCircle(Offset(radius, radius), radius, strokePaint);
-
-      final ui.Image finalImage =
-          await pictureRecorder.endRecording().toImage(120, 120);
-      final ByteData? byteData =
-          await finalImage.toByteData(format: ui.ImageByteFormat.png);
-      final Uint8List resizedMarkerImageBytesWithStroke =
-          byteData!.buffer.asUint8List();
-
-      // สร้าง BitmapDescriptor จาก bytes ของ Marker
-      final google_maps.BitmapDescriptor markerIcon =
-          await google_maps.BitmapDescriptor.fromBytes(
-              resizedMarkerImageBytesWithStroke);
-
-      // เพิ่ม Marker ลงใน Set
-      markerEmployees.add(
-        google_maps.Marker(
-          markerId: google_maps.MarkerId(employee['id']),
-          position:
-              google_maps.LatLng(employee['latitude'], employee['longitude']),
-          icon: markerIcon,
-        ),
-      );
-    }
-
-    setState(() {});
+    setState(() {
+      employeesMap = employeesLocation;
+    });
   }
 
   Future<void> getUserLocation() async {
     bool serviceEnabled;
     LocationPermission permission;
-
     serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
       return;
@@ -148,10 +88,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void moveToMyLocation() {
     if (_center != null) {
-      setState(() {
-        _center = latlong.LatLng(_currentPosition!.latitude,
-            _currentPosition!.longitude); // แก้เป็น latlong.LatLng
-      });
+      _mapController.move(_center!, 15.0);
     }
   }
 
@@ -165,7 +102,10 @@ class _HomeScreenState extends State<HomeScreen> {
   void onClickSosScreen() {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => SosScreen()),
+      MaterialPageRoute(
+          builder: (context) => SosScreen(
+                center: _center,
+              )),
     );
   }
 
@@ -201,12 +141,72 @@ class _HomeScreenState extends State<HomeScreen> {
           : Stack(
               children: [
                 FlutterMap(
-                  options: MapOptions(),
+                  mapController: _mapController,
+                  options: MapOptions(
+                    initialCenter: _center ?? latlong.LatLng(0, 0),
+                  ),
                   children: [
                     TileLayer(
                       urlTemplate:
                           "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
                       subdomains: ['a', 'b', 'c'],
+                    ),
+                    MarkerLayer(
+                      markers: employeesMap
+                          .map<Marker>((e) => Marker(
+                              width: 80.0,
+                              height: 80.0,
+                              point:
+                                  latlong.LatLng(e['latitude'], e['longitude']),
+                              child: InkWell(
+                                onTap: () => showDialog(
+                                    context: context,
+                                    builder: (context) {
+                                      return AlertDialog(
+                                        title: Text(e['displayName']),
+                                        content: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            ImageNetwork(
+                                              image: e['imageUrl'],
+                                              borderRadius:
+                                                  BorderRadius.circular(50),
+                                              height: 60,
+                                              width: 60,
+                                              curve: Curves.easeIn,
+                                              onLoading: Icon(
+                                                Icons.person,
+                                                color: Colors.grey,
+                                              ),
+                                              onError: const Icon(
+                                                Icons.error,
+                                                color: Colors.red,
+                                              ),
+                                            ),
+                                            Text(e['status'] ?? 'No status'),
+                                          ],
+                                        ),
+                                      );
+                                    }),
+                                child: IgnorePointer(
+                                  child: ImageNetwork(
+                                    image: "${e['imageUrl']}",
+                                    borderRadius: BorderRadius.circular(50),
+                                    height: 60,
+                                    width: 60,
+                                    curve: Curves.easeIn,
+                                    onLoading: Icon(
+                                      Icons.person,
+                                      color: Colors.grey,
+                                    ),
+                                    onError: const Icon(
+                                      Icons.error,
+                                      color: Colors.red,
+                                    ),
+                                  ),
+                                ),
+                              )))
+                          .toList(),
                     ),
                   ],
                 ),
@@ -247,7 +247,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
                 Positioned(
-                  bottom: 100,
+                  top: 676,
                   right: 10,
                   child: ElevatedButton(
                     style: buttonStyle(),

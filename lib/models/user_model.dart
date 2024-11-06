@@ -105,19 +105,31 @@ class UserModel {
     }
   }
 
+Future<String> uploadImageProfileWeb(Uint8List imageData) async {
+    try {
+      final String userId = FirebaseAuth.instance.currentUser!.uid;
+      final Reference ref = FirebaseStorage.instance.ref().child('profile_images/$userId.jpg');
+      
+      UploadTask uploadTask = ref.putData(imageData);
+      TaskSnapshot snapshot = await uploadTask;
+
+      String downloadUrl = await snapshot.ref.getDownloadURL();
+      return downloadUrl;
+    } catch (e) {
+      print('Error uploading image: $e');
+      return '';
+    }
+  }
+
   Future<String> uploadImageProfile(XFile file) async {
     try {
-      final String fileName = auth.currentUser!.uid;
-      final Reference ref = storage.child('profile_images/$fileName.jpg');
+      final String userId = FirebaseAuth.instance.currentUser!.uid;
+      final Reference ref = FirebaseStorage.instance.ref().child('profile_images/$userId.jpg');
 
       await ref.putFile(File(file.path));
-      String url = await ref.getDownloadURL();
+      String downloadUrl = await ref.getDownloadURL();
 
-      await db.collection('users').doc(auth.currentUser?.uid).update({
-        'imageUrl': url,
-      });
-
-      return url;
+      return downloadUrl;
     } catch (e) {
       print('Error uploading image: $e');
       return '';

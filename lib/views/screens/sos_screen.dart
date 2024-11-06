@@ -1,17 +1,18 @@
+import 'package:cloud_firestore/cloud_firestore.dart'; // นำเข้า Firestore
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart'; // นำเข้าแพ็คเกจ OpenStreetMap
+import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:cloud_firestore/cloud_firestore.dart'; // นำเข้า Firestore
-import 'package:latlong2/latlong.dart'; // สำหรับ LatLng
 
 class SosScreen extends StatefulWidget {
+  SosScreen({super.key, this.center});
+  LatLng? center;
   @override
   _SosScreenState createState() => _SosScreenState();
 }
 
 class _SosScreenState extends State<SosScreen> {
-  LatLng _currentPosition = LatLng(13.7563, 100.5018); // ตำแหน่งตัวอย่าง (Bangkok)
-  TextEditingController _messageController = TextEditingController(); // ตัวควบคุมข้อความ
+  TextEditingController _messageController = TextEditingController();
 
   // ตัวอย่างรายชื่อผู้ติดต่อฉุกเฉิน
   final List<Map<String, String>> _emergencyContacts = [
@@ -26,8 +27,8 @@ class _SosScreenState extends State<SosScreen> {
     if (message.isNotEmpty) {
       try {
         await FirebaseFirestore.instance.collection('sos_messages').add({
-          'latitude': _currentPosition.latitude,
-          'longitude': _currentPosition.longitude,
+          'latitude': widget.center?.latitude,
+          'longitude': widget.center?.longitude,
           'message': message,
           'timestamp': Timestamp.now(),
         });
@@ -73,26 +74,43 @@ class _SosScreenState extends State<SosScreen> {
     );
 
     var flutterMap = FlutterMap(
-                  options: MapOptions(
-                    onTap: (tapPosition, point) {
-                      setState(() {
-                        _currentPosition = point; // อัปเดตตำแหน่งปัจจุบัน
-                      });
-                    },
-                    crs: const Epsg3857(),
-                  ),
-                  children: [ // เพิ่ม children ตรงนี้
-      tileLayer, // ตัวอย่าง TileLayer
-                  ],
-                );
+      options: MapOptions(
+        onTap: (tapPosition, point) {
+          setState(() {
+            widget.center = point;
+          });
+        },
+        crs: const Epsg3857(),
+        initialCenter: widget.center ?? LatLng(0, 0),
+      ),
+      children: [
+        tileLayer, // ต้องให้ TileLayer อยู่ในลำดับแรกๆ
+        MarkerLayer(
+          markers: [
+            Marker(
+              width: 80.0,
+              height: 80.0,
+              point: widget.center ?? LatLng(37.4219983, -122.084),
+              child: Icon(
+                Icons.location_on,
+                color: Colors.red,
+                size: 50.0,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
     return Scaffold(
       appBar: AppBar(
         title: Text(
           'SOS',
           style: TextStyle(color: isDarkMode ? Colors.black : Colors.white),
         ),
-        iconTheme: IconThemeData(color: isDarkMode ? Colors.black : Colors.white),
-        backgroundColor: isDarkMode ? Colors.white : const Color.fromARGB(255, 71, 124, 168),
+        iconTheme:
+            IconThemeData(color: isDarkMode ? Colors.black : Colors.white),
+        backgroundColor:
+            isDarkMode ? Colors.white : const Color.fromARGB(255, 71, 124, 168),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -114,7 +132,9 @@ class _SosScreenState extends State<SosScreen> {
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(12),
-                child: flutterMap,
+                child: widget.center != null
+                    ? flutterMap
+                    : Center(child: CircularProgressIndicator()),
               ),
             ),
             // ช่องให้พิมพ์ข้อความ
@@ -123,9 +143,13 @@ class _SosScreenState extends State<SosScreen> {
               decoration: InputDecoration(
                 border: OutlineInputBorder(),
                 labelText: 'Enter your message',
-                labelStyle: TextStyle(color: isDarkMode ? Colors.grey : Colors.grey),
+                labelStyle:
+                    TextStyle(color: isDarkMode ? Colors.grey : Colors.grey),
                 focusedBorder: OutlineInputBorder(
-                  borderSide: BorderSide(color: isDarkMode ? Colors.blue : const Color.fromARGB(255, 71, 124, 168)),
+                  borderSide: BorderSide(
+                      color: isDarkMode
+                          ? Colors.blue
+                          : const Color.fromARGB(255, 71, 124, 168)),
                 ),
               ),
               maxLines: 2,
@@ -137,10 +161,13 @@ class _SosScreenState extends State<SosScreen> {
               onPressed: _sendSOS,
               child: Text(
                 'Send SOS',
-                style: TextStyle(color: isDarkMode ? Colors.black : Colors.white),
+                style:
+                    TextStyle(color: isDarkMode ? Colors.black : Colors.white),
               ),
               style: ElevatedButton.styleFrom(
-                backgroundColor: isDarkMode ? Colors.white : const Color.fromARGB(255, 71, 124, 168),
+                backgroundColor: isDarkMode
+                    ? Colors.white
+                    : const Color.fromARGB(255, 71, 124, 168),
                 padding: EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -177,11 +204,14 @@ class _SosScreenState extends State<SosScreen> {
                       ),
                       subtitle: Text(
                         'Phone: ${contact['phone'] ?? 'N/A'}',
-                        style: TextStyle(color: isDarkMode ? Colors.white70 : Colors.black),
+                        style: TextStyle(
+                            color: isDarkMode ? Colors.white70 : Colors.black),
                       ),
                       trailing: IconButton(
                         icon: Icon(Icons.call),
-                        color: isDarkMode ? Colors.white : const Color.fromARGB(255, 71, 124, 168),
+                        color: isDarkMode
+                            ? Colors.white
+                            : const Color.fromARGB(255, 71, 124, 168),
                         onPressed: () {
                           _callContact(contact['phone']!);
                         },
